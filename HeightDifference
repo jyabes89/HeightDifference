@@ -1,0 +1,245 @@
+using fishing_game;
+using System;
+using System.Collections.Generic;
+using System.Numerics;
+using System.Threading;
+
+namespace fishing_game
+{
+    class Game
+    {
+        static Player player = new Player("Player1", new FishingRod("Bamboo Stick", 0, 0));
+
+        static void Main(string[] args)
+        {
+
+            //I rearranged the collection of lakes and fishing rods to be more readable. I contemplated
+            //creating classes for all of these, but I found that this still worked, and it messed up
+            //my code when I tried.
+            List<Lake> all_lakes = new List<Lake>()
+            {
+                new Lake("Lake Tahoe", new List<Fish>() { new Catfish(35), new Albacore(20), new Bluefin(5) }),
+                new Lake("Big Bear lake", new List<Fish>() { new Catfish(30), new Albacore(35), new YellowTail(15) })
+            };
+
+            List<FishingRod> availableRods = new List<FishingRod>() {
+                new FishingRod("Swift Model E", 50, 2),
+                new FishingRod("Perry Water Eye Gouger", 200, 6),
+                new FishingRod("The Senator", 400, 10),
+                new FishingRod("Ocean Depleter", 1000, 20),
+
+            };
+
+            bool exit = false;
+            while (!exit)
+            {
+                Console.WriteLine($"Welcome {player.Name} to deep sea fishing! You have ${player.Money}.");
+                Console.WriteLine("---------");
+                Console.WriteLine("1. Go fishing");
+                Console.WriteLine("2. Sell fish");
+                Console.WriteLine("3. Visit Bass Pro Shop");
+                Console.WriteLine("4. Exit");
+                Console.WriteLine("What would you like to do?");
+
+                string input = Console.ReadLine();
+                //Like the fighting game, I implemented different cases for the selections. In each
+                //case I made for loops to ensure the right information was being displayed for each option.
+                switch (input)
+                {
+                    case "1":
+                        Console.WriteLine("Where would you like to fish?");
+                        for (int i = 0; i < all_lakes.Count; i++)
+                        {
+                            Console.WriteLine($"{i + 1}. {all_lakes[i].Name}");
+                        }
+                        int lakeChoice = int.Parse(Console.ReadLine()) - 1;
+                        go_fishing(all_lakes[lakeChoice].AvailableFish);
+                        break;
+                    case "2":
+                        sell_fish();
+                        break;
+                        //Case 3 caused me a lot of headaches trying to make it work. Mostly with tracking
+                        //money and making sure that it didn't break the game when player went negative.
+                    case "3":
+                        Console.WriteLine("Welcome to Bass Pro Shop! These are the rods available:");
+                        for (int i = 0; i < availableRods.Count; i++)
+                        {
+                            Console.WriteLine($"{i + 1}. {availableRods[i].Name} - ${availableRods[i].Price} with +{availableRods[i].Buff} buff");
+                        }
+                        int rodChoice = int.Parse(Console.ReadLine()) - 1;
+                        if (player.Money >= availableRods[rodChoice].Price)
+                        {
+                            player.Money -= availableRods[rodChoice].Price;
+                            player.Rod = availableRods[rodChoice];
+                            Console.WriteLine($"You bought a {player.Rod.Name}!");
+                        }
+                        else
+                        {
+                            Console.WriteLine("You don't have enough money for that rod.");
+                        }
+                        break;
+                    case "4":
+                        exit = true;
+                        break;
+                }
+            }
+        }
+
+        //These next two functions were extremely difficult and required a lot of help. I had to 
+        //logic a lot of this out while getting a lot of help from the internet. Tried to keep a lot
+        //of the prompts from the original code, and it helped keeping me on track.
+        private static void go_fishing(List<Fish> availableFishes)
+        {
+            int full_container = 4;
+            Random rand = new Random();
+            Console.WriteLine($"Our container holds {full_container} fish. Keep the ones you love.");
+            Console.WriteLine("Let's fish!");
+
+            while (player.Container.Count < full_container)
+            {
+                int random_fish_index = rand.Next(availableFishes.Count);
+                int fish_bites_chance = rand.Next(100) + player.Rod.Buff;
+
+                if (availableFishes[random_fish_index].BitesBait(fish_bites_chance))
+                {
+                    Console.WriteLine("\nA fish bit your bait! What do you want to do?");
+                    Console.WriteLine("1. Reel in fish");
+                    Console.WriteLine("2. Use net\n");
+
+                    string input = Console.ReadLine();
+                    if (availableFishes[random_fish_index].IsCaught(input))
+                    {
+                        Console.WriteLine("\nGot it! Let's see what we caught.");
+                        Console.WriteLine(availableFishes[random_fish_index].Name);
+                        Console.WriteLine("");
+                        player.Container.Add(availableFishes[random_fish_index]);
+                    }
+                    else
+                    {
+                        Console.WriteLine("Oh no! The fish got away. Keep trying!\n\n");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("One minute went by...");
+                    Thread.Sleep(500);
+                }
+            }
+            Console.WriteLine("We're full! Let's look at what we caught.");
+            foreach (Fish fish in player.Container)
+            {
+                Console.WriteLine(fish.Name);
+            }
+            Console.WriteLine("\n\n\n");
+        }
+
+        private static void sell_fish()
+        {
+            if (player.Container.Count == 0)
+            {
+                Console.WriteLine("You have no fish to sell!");
+                return;
+            }
+            Console.WriteLine("Selling fish...");
+            int total = 0;
+            foreach (Fish fish in player.Container)
+            {
+                total += fish.MarketPrice;
+            }
+            player.Money += total;
+            Console.WriteLine($"You sold all your fish for a total of {total} units.");
+            player.Container.Clear();
+        }
+    }
+    //Below are all the classes I created to help with this program. Lakes, fishes, players, and rods,
+    //just to have them if I needed them.
+    class Lake
+    {
+        public string Name { get; set; }
+        public List<Fish> AvailableFish { get; set; }
+
+        public Lake(string name, List<Fish> availableFish)
+        {
+            Name = name;
+            AvailableFish = availableFish;
+        }
+    }
+
+    class Fish
+    {
+        public string Name { get; set; }
+        public int MarketPrice { get; set; }
+        public int BiteProbability { get; set; }
+
+        public Fish(string name, int marketPrice, int probability)
+        {
+            Name = name;
+            MarketPrice = marketPrice;
+            BiteProbability = probability;
+        }
+
+        internal virtual bool BitesBait(int chance)
+        {
+            return chance < BiteProbability;
+        }
+
+        internal bool IsCaught(string input)
+        {
+            return input == "1";
+        }
+    }
+
+    class Catfish : Fish
+    {
+        public Catfish(int probability) : base("Catfish", 10, probability) { }
+    }
+
+    class Bluefin : Fish
+    {
+        public Bluefin(int probability) : base("Bluefin", 500, probability) { }
+    }
+
+    class Albacore : Fish
+    {
+        public Albacore(int probability) : base("Albacore", 50, probability) { }
+    }
+
+    class YellowTail : Fish
+    {
+        public YellowTail(int probability) : base("Yellowtail", 70, probability) { }
+    }
+}
+
+class Player
+{
+    public string Name { get; set; }
+    public int Money { get; set; }
+    public FishingRod Rod { get; set; }
+    public List<Fish> Container { get; set; }
+
+    public Player(string name, FishingRod rod)
+    {
+        Name = name;
+        Money = 0;
+        Rod = rod;
+        Container = new List<Fish>();
+    }
+}
+
+class FishingRod
+{
+    public string Name { get; set; }
+    public int Price { get; set; }
+    public int Buff { get; set; }
+
+    public FishingRod(string name, int price, int buff)
+    {
+        Name = name;
+        Price = price;
+        Buff = buff;
+    }
+}
+
+//This assignment was similar to the fighting game but still presented a lof of challenging
+//things. I tested a few times and was able to play it so hopefully it works. I am learning
+//a whole lot, but reaching out and asking questions is the most useful thing I've done.
